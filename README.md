@@ -14,9 +14,8 @@ scripts/        # 저장소 검사 스크립트
 README.md
 ```
 
-현재는 제품 구현 전 단계로, 하네스·문서·GitHub 협업 규칙과 기본 디렉터리만
-준비되어 있다. 제품 코드는 `frontend/`와 `backend/`에 각각 스택을 선택한 뒤
-추가한다.
+현재는 제품 구현 전 단계로, 제품 기획 문서와 GitHub 협업 규칙, 기본
+디렉터리만 준비되어 있다. 제품 코드는 `frontend/`와 `backend/`에 추가한다.
 
 ## Current workflow
 
@@ -25,9 +24,8 @@ README.md
 3. 논리적으로 나뉜 커밋을 만든다.
 4. 검사 후 PR을 열고 리뷰한 뒤 `main`에 병합한다.
 
-검사:
+기본 검사:
 
 ```powershell
-.\scripts\check_harness.ps1
 git diff --check
 ```

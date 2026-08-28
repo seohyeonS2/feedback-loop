@@ -1,6 +1,15 @@
 # Local reference clone used during Harness Starter Kit adoption.
 /harness-starter-kit/
 
+# Local agent and harness metadata; keep these out of the product repository.
+AGENTS.md
+.agents/
+.codex/
+.harness/
+docs/harness/
+docs/effectiveness/
+scripts/check_harness.ps1
+
 # Secrets and local environment.
 .env
 .env.*

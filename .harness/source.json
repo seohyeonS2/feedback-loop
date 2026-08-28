@@ -1,9 +1,0 @@
-{
-  "source": "https://github.com/harnessworks/harness-starter-kit",
-  "source_commit": "62437bec264b2deed83353e8209660d645e86828",
-  "source_ref": "main",
-  "applied_profile": "generic",
-  "adoption_mode": "prompt-first",
-  "adopted_at": "2026-08-27",
-  "reference_path": "./harness-starter-kit"
-}
