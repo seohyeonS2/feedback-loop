@@ -10,12 +10,18 @@
 frontend/       # PC 웹 UI
 backend/        # API, AI 분석, 파일·데이터 저장
 docs/           # 기획·결정사항·도메인 문서
-scripts/        # 저장소 검사 스크립트
+scripts/        # 개발 보조 스크립트
 README.md
 ```
 
-현재는 제품 구현 전 단계로, 제품 기획 문서와 GitHub 협업 규칙, 기본
-디렉터리만 준비되어 있다. 제품 코드는 `frontend/`와 `backend/`에 추가한다.
+MVP는 React/Vite PC 웹 UI와 FastAPI 분석 API로 구성된다. 브라우저에는 과제,
+추출 결과, 피드백 상태, 검토 결과와 승인한 인사이트를 저장하고, 백엔드는
+업로드 파일을 영구 저장하지 않은 채 텍스트 추출과 AI 검토 응답만 처리한다.
+
+자세한 실행 방법은 [`frontend/README.md`](frontend/README.md)와
+[`backend/README.md`](backend/README.md)를 참고한다.
+
+배포 순서는 [`docs/deployment.md`](docs/deployment.md)에 정리되어 있다.
 
 ## Current workflow
 
