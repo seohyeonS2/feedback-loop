@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ChangeEvent, FormEvent, ReactNode } from "react";
 
 import {
@@ -7,6 +7,7 @@ import {
   formatEvidence,
   generateInsightCandidates,
   reviewSubmission,
+  wakeAnalysisApi,
 } from "./api";
 import { createSampleSnapshot } from "./sampleData";
 import {
@@ -39,6 +40,8 @@ import {
 type Route =
   | { name: "dashboard" | "assignments" | "profile" | "settings" }
   | { name: "assignment" | "review"; assignmentId: string };
+
+type ApiConnectionState = "waking" | "ready" | "unconfigured" | "offline";
 
 const ROUTE_TITLES: Record<Route["name"], string> = {
   dashboard: "오늘의 제출 준비",
@@ -148,6 +151,20 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [notice, setNotice] = useState("");
+  const [apiConnectionState, setApiConnectionState] =
+    useState<ApiConnectionState>("waking");
+
+  const refreshApiStatus = useCallback(async (): Promise<void> => {
+    setApiConnectionState("waking");
+    try {
+      const health = await wakeAnalysisApi({
+        onRetry: () => setApiConnectionState("waking"),
+      });
+      setApiConnectionState(health.aiConfigured ? "ready" : "unconfigured");
+    } catch {
+      setApiConnectionState("offline");
+    }
+  }, []);
 
   useEffect(() => {
     readSnapshot()
@@ -155,6 +172,10 @@ export default function App() {
       .catch(() => setLoadError("브라우저 저장소를 열지 못했어요."))
       .finally(() => setIsLoading(false));
   }, []);
+
+  useEffect(() => {
+    void refreshApiStatus();
+  }, [refreshApiStatus]);
 
   async function persist(nextSnapshot: AppSnapshot): Promise<void> {
     setSnapshot(nextSnapshot);
@@ -414,9 +435,52 @@ export default function App() {
       assignmentCount={snapshot.assignments.length}
       onNavigate={navigate}
     >
+      <ApiConnectionNotice
+        state={apiConnectionState}
+        onRetry={refreshApiStatus}
+      />
       {notice && <div className="global-notice">{notice}</div>}
       {content}
     </AppShell>
+  );
+}
+
+function ApiConnectionNotice({
+  state,
+  onRetry,
+}: {
+  state: ApiConnectionState;
+  onRetry: () => Promise<void>;
+}) {
+  if (state === "ready") return null;
+  const copy = {
+    waking: {
+      title: "무료 분석 서버를 준비하고 있어요.",
+      description: "첫 연결은 최대 1분 정도 걸릴 수 있어요. 화면은 계속 둘러볼 수 있어요.",
+    },
+    unconfigured: {
+      title: "분석 서버는 연결됐지만 Gemini 설정이 필요해요.",
+      description: "샘플 데이터는 사용할 수 있고, 실제 검토에는 Render의 GEMINI_API_KEY가 필요해요.",
+    },
+    offline: {
+      title: "분석 서버에 아직 연결하지 못했어요.",
+      description: "무료 서버가 깨어나는 중일 수 있어요. 잠시 후 다시 확인해 주세요.",
+    },
+  }[state];
+
+  return (
+    <div className={`api-connection-notice ${state}`} role="status" aria-live="polite">
+      <span className="api-connection-dot" aria-hidden="true" />
+      <div>
+        <strong>{copy.title}</strong>
+        <p>{copy.description}</p>
+      </div>
+      {state !== "waking" && (
+        <button className="api-retry-button" onClick={() => void onRetry()}>
+          다시 확인
+        </button>
+      )}
+    </div>
   );
 }
 
