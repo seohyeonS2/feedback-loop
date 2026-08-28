@@ -6,6 +6,8 @@ export type DocumentType =
   | "feedback"
   | "draft";
 
+export type AssignmentType = "individual" | "team";
+
 export type FeedbackStatus =
   | "new"
   | "confirmed"
@@ -22,6 +24,7 @@ export type Confidence = "tentative" | "supported";
 
 export interface Assignment {
   id: string;
+  assignmentType?: AssignmentType;
   courseName: string;
   title: string;
   dueDate: string;

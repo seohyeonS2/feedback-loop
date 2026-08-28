@@ -18,6 +18,7 @@ function assignment(
 ): Assignment {
   return {
     id,
+    assignmentType: "individual",
     title,
     courseName,
     dueDate,
