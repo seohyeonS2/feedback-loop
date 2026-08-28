@@ -21,7 +21,7 @@ README.md
 ## Current workflow
 
 1. 의미 있는 작업은 GitHub 이슈로 범위와 완료 조건을 정한다.
-2. 작업별 `<short-kebab-case>` 브랜치를 만든다.
+2. 작업 유형에 맞는 `feature/`, `fix/`, `docs/`, `chore/` 브랜치를 만든다.
 3. 논리적으로 나뉜 커밋을 만든다.
 4. 검사 후 PR을 열고 리뷰한 뒤 `main`에 병합한다.
 

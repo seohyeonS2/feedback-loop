@@ -113,7 +113,9 @@ Before reporting completion:
 
 ## Commit And PR Rules
 
-- Use `<short-kebab-case>` for feature, fix, and documentation branches.
+- Use `feature/<short-kebab-case>`, `fix/<short-kebab-case>`,
+  `docs/<short-kebab-case>`, or `chore/<short-kebab-case>` according to the
+  change type.
 - Open an issue before non-trivial work, keep one logical change per PR, and
   link the PR to its issue.
 - Inspect `git status` and the staged diff before committing.

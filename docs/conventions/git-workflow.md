@@ -3,9 +3,11 @@
 ## Branches
 
 - Keep `main` releasable and do not develop directly on it.
-- Use `<short-kebab-case>` for feature, fix, and documentation branches.
+- Use `feature/<short-kebab-case>`, `fix/<short-kebab-case>`,
+  `docs/<short-kebab-case>`, or `chore/<short-kebab-case>` according to the
+  change type.
 - Create a branch for one logical change, such as
-  `feedback-loop-dashboard`.
+  `feature/feedback-loop-dashboard`.
 - Do not commit credentials, local environment files, generated output, or
   `harness-starter-kit/`.
 
