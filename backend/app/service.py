@@ -4,6 +4,11 @@ from uuid import uuid4
 
 from .config import Settings
 from .llm import LLMProvider
+from .privacy import (
+    PRIVACY_REDACTION_WARNING,
+    redact_insight_request,
+    redact_review_request,
+)
 from .schemas import (
     InsightGenerationRequest,
     InsightGenerationResponse,
@@ -34,7 +39,8 @@ class ReviewService:
         self.settings = settings
 
     async def review(self, request: ReviewRequest) -> ReviewResult:
-        if not request.draft.blocks:
+        safe_request, redacted_categories = redact_review_request(request)
+        if not safe_request.draft.blocks:
             return ReviewResult(
                 reviewId=str(uuid4()),
                 readiness="cannot_review",
@@ -43,7 +49,10 @@ class ReviewService:
             )
         total_chars = sum(
             len(block.text)
-            for document in [*request.context_documents, request.draft]
+            for document in [
+                *safe_request.context_documents,
+                safe_request.draft,
+            ]
             for block in document.blocks
         )
         if total_chars > self.settings.max_review_characters:
@@ -57,15 +66,17 @@ class ReviewService:
                 ],
             )
 
-        result = await self.provider.review(request)
-        allowed = _allowed_references(request)
+        result = await self.provider.review(safe_request)
+        allowed = _allowed_references(safe_request)
         for check in result.checks:
             check.evidence_refs = [
                 reference
                 for reference in check.evidence_refs
                 if _valid_reference(reference, allowed)
             ]
-        valid_feedback_ids = {record.feedback_id for record in request.feedback_records}
+        valid_feedback_ids = {
+            record.feedback_id for record in safe_request.feedback_records
+        }
         for candidate in result.insight_candidates:
             candidate.feedback_record_ids = [
                 feedback_id
@@ -77,6 +88,8 @@ class ReviewService:
                 for reference in candidate.evidence_refs
                 if _valid_reference(reference, allowed)
             ]
+        if redacted_categories and PRIVACY_REDACTION_WARNING not in result.warnings:
+            result.warnings.append(PRIVACY_REDACTION_WARNING)
         return result
 
     async def generate_insights(
@@ -89,11 +102,14 @@ class ReviewService:
                     "만들 수 있어요."
                 ]
             )
-        result = await self.provider.generate_insights(request)
-        valid_ids = {record.feedback_id for record in request.feedback_records}
+        safe_request, redacted_categories = redact_insight_request(request)
+        result = await self.provider.generate_insights(safe_request)
+        valid_ids = {
+            record.feedback_id for record in safe_request.feedback_records
+        }
         allowed_references = {
             (reference.document_id, reference.block_id)
-            for record in request.feedback_records
+            for record in safe_request.feedback_records
             for reference in record.evidence_refs
         }
         for candidate in result.candidates:
@@ -112,4 +128,6 @@ class ReviewService:
             for candidate in result.candidates
             if len(set(candidate.feedback_record_ids)) >= 2
         ]
+        if redacted_categories and PRIVACY_REDACTION_WARNING not in result.warnings:
+            result.warnings.append(PRIVACY_REDACTION_WARNING)
         return result

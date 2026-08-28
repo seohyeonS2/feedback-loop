@@ -69,3 +69,26 @@ def test_empty_document_returns_warning():
 
     assert result.blocks == []
     assert result.warnings
+
+
+def test_extraction_redacts_sensitive_text_before_returning_blocks():
+    import asyncio
+
+    result = asyncio.run(
+        extract_upload(
+            upload_for(
+                make_docx(
+                    "연락처는 010-1234-5678이고 메일은 student@example.com입니다."
+                )
+            ),
+            document_id="doc-private",
+            document_type="draft",
+            max_bytes=1024 * 1024,
+        )
+    )
+
+    assert "010-1234-5678" not in result.blocks[0].text
+    assert "student@example.com" not in result.blocks[0].text
+    assert "[연락처 숨김]" in result.blocks[0].text
+    assert "[이메일 숨김]" in result.blocks[0].text
+    assert any("자동으로 가렸어요" in warning for warning in result.warnings)

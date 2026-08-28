@@ -8,6 +8,7 @@ from docx import Document
 from fastapi import UploadFile
 from pypdf import PdfReader
 
+from .privacy import redact_extracted_document
 from .schemas import DocumentType, ExtractedDocument, SourceBlock
 
 SUPPORTED_EXTENSIONS = {".pdf", ".docx"}
@@ -114,7 +115,7 @@ async def extract_upload(
             "텍스트를 찾지 못했어요. 스캔 이미지 PDF는 현재 지원하지 않아요."
         )
 
-    return ExtractedDocument(
+    document = ExtractedDocument(
         documentId=document_id,
         fileName=filename,
         documentType=document_type,
@@ -123,3 +124,5 @@ async def extract_upload(
         warnings=warnings,
         characterCount=sum(len(block.text) for block in blocks),
     )
+    safe_document, _ = redact_extracted_document(document, add_warning=True)
+    return safe_document
