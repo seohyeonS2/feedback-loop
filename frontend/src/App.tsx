@@ -478,16 +478,16 @@ function ApiConnectionNotice({
   if (state === "ready") return null;
   const copy = {
     waking: {
-      title: "무료 분석 서버를 준비하고 있어요.",
+      title: "분석 기능을 준비하고 있어요.",
       description: "첫 연결은 최대 1분 정도 걸릴 수 있어요. 화면은 계속 둘러볼 수 있어요.",
     },
     unconfigured: {
-      title: "분석 서버는 연결됐지만 Gemini 설정이 필요해요.",
-      description: "샘플 데이터는 사용할 수 있고, 실제 검토에는 Render의 GEMINI_API_KEY가 필요해요.",
+      title: "분석 기능을 지금 사용할 수 없어요.",
+      description: "샘플 데이터는 계속 사용할 수 있어요. 잠시 후 다시 확인해 주세요.",
     },
     offline: {
-      title: "분석 서버에 아직 연결하지 못했어요.",
-      description: "무료 서버가 깨어나는 중일 수 있어요. 잠시 후 다시 확인해 주세요.",
+      title: "분석 기능에 아직 연결하지 못했어요.",
+      description: "기능을 준비하고 있을 수 있어요. 잠시 후 다시 확인해 주세요.",
     },
   }[state];
 
@@ -1000,7 +1000,7 @@ function SettingsPage({ onExport, onImport, onClear }: { onExport: () => Promise
 }
 
 function PrivacyCallout({ detailed = false }: { detailed?: boolean }) {
-  return <div className={`privacy-callout ${detailed ? "detailed" : ""}`}><span className="privacy-icon">✦</span><div><strong>업로드 전, 이것만 기억해 주세요.</strong><p>분석을 위해 자료가 백엔드와 Gemini 무료 티어로 전송될 수 있어요. 주민번호, 연락처 등 민감한 정보는 지운 뒤 업로드하세요. 우리 백엔드는 분석 요청이 끝나면 업로드 파일을 보관하지 않아요.</p></div></div>;
+  return <div className={`privacy-callout ${detailed ? "detailed" : ""}`}><span className="privacy-icon">✦</span><div><strong>개인정보는 분석 전에 한 번 더 확인해요.</strong><p>주민등록번호·연락처·이메일처럼 개인정보로 보이는 내용은 자동으로 가려요. 이름·주소처럼 문맥에 따라 달라지는 정보는 완전히 탐지되지 않을 수 있으니 업로드 전에 확인해 주세요.</p></div></div>;
 }
 
 function PanelHeading({ eyebrow, title, actionLabel, onAction }: { eyebrow: string; title: string; actionLabel?: string; onAction?: () => void }) {

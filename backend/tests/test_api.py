@@ -55,13 +55,31 @@ class FakeProvider(LLMProvider):
         )
 
 
-def make_client() -> TestClient:
+class RecordingProvider(FakeProvider):
+    def __init__(self):
+        self.review_request: ReviewRequest | None = None
+        self.insight_request: InsightGenerationRequest | None = None
+
+    async def review(self, request: ReviewRequest) -> ReviewResult:
+        self.review_request = request
+        return await super().review(request)
+
+    async def generate_insights(
+        self, request: InsightGenerationRequest
+    ) -> InsightGenerationResponse:
+        self.insight_request = request
+        return await super().generate_insights(request)
+
+
+def make_client(provider: LLMProvider | None = None) -> TestClient:
     settings = Settings(
         gemini_api_key="test-key",
         frontend_origin="http://testserver",
         requests_per_hour=100,
     )
-    return TestClient(create_app(settings=settings, provider=FakeProvider()))
+    return TestClient(
+        create_app(settings=settings, provider=provider or FakeProvider())
+    )
 
 
 def review_payload() -> dict:
@@ -152,3 +170,59 @@ def test_insights_need_two_feedback_records():
     assert response.status_code == 200
     assert response.json()["candidates"] == []
     assert response.json()["warnings"]
+
+
+def test_review_redacts_sensitive_data_before_provider_call():
+    provider = RecordingProvider()
+    payload = review_payload()
+    payload["assignment"]["description"] = "문의 010-1234-5678"
+    payload["contextDocuments"][0]["blocks"][0]["text"] = (
+        "담당자 student@example.com"
+    )
+    payload["draft"]["blocks"][0]["text"] = "주민번호 990101-1234567"
+
+    response = make_client(provider).post("/api/v1/reviews", json=payload)
+
+    assert response.status_code == 200
+    assert provider.review_request is not None
+    forwarded = provider.review_request.model_dump_json(by_alias=True)
+    assert "010-1234-5678" not in forwarded
+    assert "student@example.com" not in forwarded
+    assert "990101-1234567" not in forwarded
+    assert "[연락처 숨김]" in forwarded
+    assert "[이메일 숨김]" in forwarded
+    assert "[주민등록번호 숨김]" in forwarded
+    assert any("자동으로 가렸어요" in item for item in response.json()["warnings"])
+
+
+def test_insight_generation_redacts_feedback_before_provider_call():
+    provider = RecordingProvider()
+    payload = {
+        "feedbackRecords": [
+            {
+                "feedbackId": "feedback-1",
+                "assignmentId": "assignment-1",
+                "originalText": "문의는 010-1234-5678로 하세요.",
+                "evidenceRefs": [],
+            },
+            {
+                "feedbackId": "feedback-2",
+                "assignmentId": "assignment-2",
+                "originalText": "메일 student@example.com을 확인하세요.",
+                "evidenceRefs": [],
+            },
+        ]
+    }
+
+    response = make_client(provider).post(
+        "/api/v1/insights/candidates", json=payload
+    )
+
+    assert response.status_code == 200
+    assert provider.insight_request is not None
+    forwarded = provider.insight_request.model_dump_json(by_alias=True)
+    assert "010-1234-5678" not in forwarded
+    assert "student@example.com" not in forwarded
+    assert "[연락처 숨김]" in forwarded
+    assert "[이메일 숨김]" in forwarded
+    assert any("자동으로 가렸어요" in item for item in response.json()["warnings"])

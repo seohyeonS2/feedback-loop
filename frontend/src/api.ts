@@ -90,7 +90,7 @@ export async function wakeAnalysisApi(
   }
 
   throw new ApiError(
-    "분석 서버를 준비하는 데 시간이 걸리고 있어요. 잠시 후 다시 시도해 주세요.",
+    "분석 기능을 준비하는 데 시간이 걸리고 있어요. 잠시 후 다시 시도해 주세요.",
     lastStatus,
   );
 }
