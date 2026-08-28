@@ -1,0 +1,66 @@
+schema_version: 1
+
+target:
+  repository: New project
+  repository_ref: main-uncommitted-2026-08-27
+  stack_or_framework: none yet
+  date: 2026-08-27
+  agent_or_model: Codex
+  reviewer: user
+
+task:
+  id: HARNESS-001
+  run_id: harness-adoption-2026-08-27
+  prompt_summary: Apply Harness Starter Kit to the empty target repository.
+  prompt_ref: user-request-1st-choice
+  prompt_hash: not recorded
+  comparable_task_group: harness-adoption-setup
+  condition: harnessed-only
+  expected_boundary:
+    - Add only generic repository harness artifacts.
+    - Keep the starter-kit clone as read-only and uncommitted reference material.
+    - Do not assume a language, framework, package manager, or product architecture.
+  known_failure_mode: Over-copying stack-specific templates into an empty repository.
+
+harness_context:
+  harness_doctor_score: not run; Python interpreter unavailable
+  harness_source:
+    kit_url: https://github.com/harnessworks/harness-starter-kit
+    kit_commit: 62437bec264b2deed83353e8209660d645e86828
+    source_tracking_ref: .harness/source.json
+  relevant_instructions:
+    - AGENTS.md
+    - harness-starter-kit/docs/adoption-workflow.md
+  relevant_constraints:
+    - .gitignore excludes harness-starter-kit/ and common local artifacts.
+    - scripts/check_harness.ps1 enforces required files and report sections.
+  relevant_memory_records: []
+
+outcome:
+  files_changed:
+    - AGENTS.md
+    - .gitignore
+    - .harness/source.json
+    - docs/conventions/coding.md
+    - docs/domain/glossary.md
+    - docs/decisions/README.md
+    - docs/failures/README.md
+    - docs/harness/adoption-report.md
+    - docs/effectiveness/README.md
+    - docs/effectiveness/task-outcomes/harness-adoption-2026-08-27.yaml
+    - scripts/check_harness.ps1
+  wrong_file_edits: none observed
+  repeated_known_mistake: none observed
+  verification_command: .\scripts\check_harness.ps1; git diff --check
+  first_pass_verification:
+    result: passed for the PowerShell harness gate; git diff --check produced no errors
+  drift_violations_detected: []
+  human_rework_minutes: 0
+  reverted_files: []
+  notes: Setup work only; no product behavior was changed.
+
+follow_up:
+  harness_change_needed: Revisit the generic profile when the first real stack is introduced.
+  decision_or_failure_record: no ADR or failure record needed for setup-only work
+  include_in_effectiveness_report: true as setup evidence, not effectiveness proof
+  include_in_comparable_product_task_count: false
