@@ -55,7 +55,7 @@ class GeminiProvider(LLMProvider):
     ) -> ModelT:
         if not self.settings.gemini_api_key:
             raise LLMConfigurationError(
-                "GEMINI_API_KEY가 설정되지 않았어요. 백엔드 환경변수를 확인해 주세요."
+                "분석 기능을 지금 사용할 수 없어요. 잠시 후 다시 시도해 주세요."
             )
 
         url = (
@@ -90,9 +90,9 @@ class GeminiProvider(LLMProvider):
                         json=body,
                     )
                 if response.status_code >= 400:
-                    detail = response.text[:300]
                     raise LLMError(
-                        f"Gemini 요청이 거절됐어요 ({response.status_code}): {detail}"
+                        "분석 요청을 처리하지 못했어요. "
+                        f"잠시 후 다시 시도해 주세요 ({response.status_code})."
                     )
                 payload = response.json()
                 text = payload["candidates"][0]["content"]["parts"][0]["text"]
