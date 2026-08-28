@@ -1,0 +1,57 @@
+# Local reference clone used during Harness Starter Kit adoption.
+/harness-starter-kit/
+
+# Local agent and harness metadata; keep these out of the product repository.
+AGENTS.md
+.agents/
+.codex/
+.harness/
+docs/harness/
+docs/effectiveness/
+scripts/check_harness.ps1
+
+# Secrets and local environment.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Operating system and editor files.
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*.local.json
+
+# Frontend and Node.js output.
+node_modules/
+.next/
+dist/
+build/
+coverage/
+frontend/.vite/
+frontend/.turbo/
+
+# Backend and Python output.
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+backend/.pytest_cache/
+backend/uploads/
+backend/storage/
+*.sqlite3
+*.db
+
+# Logs and generated output.
+*.log
+
+# Temporary agent artifacts.
+temp_*
+*_new
+*_old
+*_backup
+*_fix
