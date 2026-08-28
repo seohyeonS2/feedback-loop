@@ -9,3 +9,4 @@ rationale, alternatives, and guidance for future agents.
 
 - [0001. MVP 스택과 실행 경계](0001-mvp-stack-and-runtime.md)
 - [0002. 브라우저 저장과 개인정보 경계](0002-browser-storage-and-privacy.md)
+- [0003. 과제 기준·초안·피드백 역할 분리](0003-separate-document-roles.md)

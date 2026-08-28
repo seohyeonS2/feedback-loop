@@ -11,6 +11,12 @@ import {
 } from "./api";
 import { createSampleSnapshot } from "./sampleData";
 import {
+  getAssignmentFeedbackRecords,
+  getContextDocumentTypes,
+  isContextDocument,
+  type ContextDocumentType,
+} from "./reviewInputs";
+import {
   clearStorage,
   emptySnapshot,
   exportSnapshot,
@@ -25,6 +31,7 @@ import {
   INSIGHT_LABELS,
   type AppSnapshot,
   type Assignment,
+  type AssignmentType,
   type DocumentType,
   type ExtractedDocument,
   type FeedbackRecord,
@@ -183,6 +190,7 @@ export default function App() {
   }
 
   async function handleCreateAssignment(fields: {
+    assignmentType: AssignmentType;
     courseName: string;
     title: string;
     dueDate: string;
@@ -207,15 +215,30 @@ export default function App() {
     const nextDocuments = [
       document,
       ...snapshot.documents.filter(
-        (item) => item.documentId !== document.documentId,
+        (item) =>
+          item.documentId !== document.documentId &&
+          !(
+            document.documentType === "draft" &&
+            item.assignmentId === document.assignmentId &&
+            item.documentType === "draft"
+          ),
       ),
     ];
     await persist({ ...snapshot, documents: nextDocuments });
   }
 
-  async function handleAddFeedback(feedback: FeedbackRecord): Promise<void> {
+  async function handleAddFeedbackDocument(
+    document: StoredDocument,
+    feedback: FeedbackRecord,
+  ): Promise<void> {
     await persist({
       ...snapshot,
+      documents: [
+        document,
+        ...snapshot.documents.filter(
+          (item) => item.documentId !== document.documentId,
+        ),
+      ],
       feedbackRecords: [
         feedback,
         ...snapshot.feedbackRecords.filter(
@@ -238,8 +261,7 @@ export default function App() {
     const documents = snapshot.documents.filter(
       (document) => document.assignmentId === assignment.id,
     );
-    const drafts = documents.filter((document) => document.documentType === "draft");
-    const draft = drafts[0];
+    const draft = documents.find((document) => document.documentType === "draft");
     if (!draft) {
       setNotice("먼저 제출 초안을 업로드해 주세요.");
       return;
@@ -253,10 +275,11 @@ export default function App() {
           courseName: assignment.courseName,
           description: assignment.description,
         },
-        contextDocuments: documents
-          .filter((document) => document.documentType !== "draft")
-          .map(stripStoredDocument),
-        feedbackRecords: snapshot.feedbackRecords,
+        contextDocuments: documents.filter(isContextDocument).map(stripStoredDocument),
+        feedbackRecords: getAssignmentFeedbackRecords(
+          snapshot.feedbackRecords,
+          assignment.id,
+        ),
         draft: stripStoredDocument(draft),
         activeInsights: snapshot.insights
           .filter((insight) => insight.state === "approved" || insight.state === "edited")
@@ -409,7 +432,7 @@ export default function App() {
         assignment={currentAssignment}
         snapshot={snapshot}
         onAddDocument={handleAddDocument}
-        onAddFeedback={handleAddFeedback}
+        onAddFeedbackDocument={handleAddFeedbackDocument}
         onUpdateFeedback={handleUpdateFeedback}
         onReview={handleReview}
         onNavigate={navigate}
@@ -717,7 +740,7 @@ function AssignmentsPage({
   onNavigate,
 }: {
   snapshot: AppSnapshot;
-  onCreate: (fields: { courseName: string; title: string; dueDate: string; description: string }) => Promise<void>;
+  onCreate: (fields: { assignmentType: AssignmentType; courseName: string; title: string; dueDate: string; description: string }) => Promise<void>;
   onNavigate: (path: string) => void;
 }) {
   return (
@@ -756,8 +779,9 @@ function AssignmentsPage({
 function CreateAssignmentForm({
   onCreate,
 }: {
-  onCreate: (fields: { courseName: string; title: string; dueDate: string; description: string }) => Promise<void>;
+  onCreate: (fields: { assignmentType: AssignmentType; courseName: string; title: string; dueDate: string; description: string }) => Promise<void>;
 }) {
+  const [assignmentType, setAssignmentType] = useState<AssignmentType>("individual");
   const [courseName, setCourseName] = useState("");
   const [title, setTitle] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -766,7 +790,7 @@ function CreateAssignmentForm({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!canSubmit) return;
-    await onCreate({ courseName: courseName.trim(), title: title.trim(), dueDate, description: description.trim() });
+    await onCreate({ assignmentType, courseName: courseName.trim(), title: title.trim(), dueDate, description: description.trim() });
   }
   return (
     <form className="panel create-form" onSubmit={submit}>
@@ -775,6 +799,7 @@ function CreateAssignmentForm({
       <p>자료를 담을 과제 공간부터 만들어 볼게요.</p>
       <label>과목명<input value={courseName} onChange={(event) => setCourseName(event.target.value)} placeholder="예: 마케팅원론" /></label>
       <label>과제명<input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="예: 소비자 행동 분석 보고서" /></label>
+      <label>과제 유형<select aria-label="과제 유형" value={assignmentType} onChange={(event) => setAssignmentType(event.target.value as AssignmentType)}><option value="individual">개인 과제</option><option value="team">팀플 과제</option></select></label>
       <label>제출일 <span className="optional">선택</span><input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} /></label>
       <label>과제 설명 <span className="optional">선택</span><textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="과제의 목적이나 기억해 둘 조건을 적어 주세요." rows={3} /></label>
       <button className="primary-button full-button" disabled={!canSubmit}>과제 공간 만들기 <span>→</span></button>
@@ -786,7 +811,7 @@ function AssignmentPage({
   assignment,
   snapshot,
   onAddDocument,
-  onAddFeedback,
+  onAddFeedbackDocument,
   onUpdateFeedback,
   onReview,
   onNavigate,
@@ -794,7 +819,7 @@ function AssignmentPage({
   assignment: Assignment;
   snapshot: AppSnapshot;
   onAddDocument: (document: StoredDocument) => Promise<void>;
-  onAddFeedback: (feedback: FeedbackRecord) => Promise<void>;
+  onAddFeedbackDocument: (document: StoredDocument, feedback: FeedbackRecord) => Promise<void>;
   onUpdateFeedback: (feedback: FeedbackRecord) => Promise<void>;
   onReview: (assignment: Assignment) => Promise<void>;
   onNavigate: (path: string) => void;
@@ -803,21 +828,30 @@ function AssignmentPage({
   const feedbackRecords = snapshot.feedbackRecords.filter((feedback) => feedback.assignmentId === assignment.id);
   const draft = documents.find((doc) => doc.documentType === "draft");
   const review = getLatestReview(snapshot.reviews, assignment.id);
-  const [documentType, setDocumentType] = useState<DocumentType>("assignment_notice");
-  const [uploading, setUploading] = useState(false);
-  const [uploadMessage, setUploadMessage] = useState("");
+  const [contextDocumentType, setContextDocumentType] =
+    useState<ContextDocumentType>("assignment_notice");
+  const [uploadingType, setUploadingType] = useState<DocumentType | null>(null);
+  const [contextMessage, setContextMessage] = useState("");
+  const [draftMessage, setDraftMessage] = useState("");
+  const [feedbackMessage, setFeedbackMessage] = useState("");
+  const contextDocumentTypes = getContextDocumentTypes(
+    assignment.assignmentType,
+  );
 
-  async function handleUpload(event: ChangeEvent<HTMLInputElement>) {
+  async function handleUpload(
+    event: ChangeEvent<HTMLInputElement>,
+    documentType: DocumentType,
+    setMessage: (message: string) => void,
+  ) {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
-    setUploading(true);
-    setUploadMessage("");
+    setUploadingType(documentType);
+    setMessage("");
     const documentId = makeId("document");
     try {
       const extracted = await extractDocument(file, documentType, documentId);
       const stored: StoredDocument = { ...extracted, assignmentId: assignment.id, fileData: file, createdAt: now() };
-      await onAddDocument(stored);
       if (documentType === "feedback") {
         const originalText = extracted.blocks.map((block) => block.text).join("\n");
         const feedback: FeedbackRecord = {
@@ -830,13 +864,15 @@ function AssignmentPage({
           createdAt: now(),
           updatedAt: now(),
         };
-        await onAddFeedback(feedback);
+        await onAddFeedbackDocument(stored, feedback);
+      } else {
+        await onAddDocument(stored);
       }
-      setUploadMessage(`${DOCUMENT_LABELS[documentType]}을(를) 추가했어요.`);
+      setMessage(`${DOCUMENT_LABELS[documentType]}을(를) 추가했어요.`);
     } catch (error) {
-      setUploadMessage(apiMessage(error));
+      setMessage(apiMessage(error));
     } finally {
-      setUploading(false);
+      setUploadingType(null);
     }
   }
 
@@ -851,30 +887,32 @@ function AssignmentPage({
         </div>
         <div className="workspace-due"><span>제출일</span><strong>{formatDate(assignment.dueDate)}</strong></div>
       </section>
-      <ProgressSteps hasContext={documents.some((doc) => doc.documentType !== "draft")} hasDraft={Boolean(draft)} hasReview={Boolean(review)} hasFeedback={feedbackRecords.length > 0} />
+      <ProgressSteps hasContext={documents.some(isContextDocument)} hasDraft={Boolean(draft)} hasReview={Boolean(review)} hasFeedback={feedbackRecords.length > 0} />
       <div className="workspace-grid">
         <div className="workspace-main">
           <section className="panel upload-panel">
-            <PanelHeading eyebrow="01 · COURSE CONTEXT" title="수업 자료를 모아주세요." actionLabel="왜 필요한가요?" onAction={() => setUploadMessage("자료에 적힌 조건만을 근거로 검토해요. 자료에 없는 내용은 추측하지 않아요.")} />
-            <p className="panel-description">강의계획서, 과제 공지, 팀플 공지, 채점기준, 교수님 피드백을 PDF 또는 DOCX로 추가하세요.</p>
+            <PanelHeading eyebrow="01 · ASSIGNMENT CRITERIA" title="과제 기준 자료를 모아주세요." actionLabel="왜 필요한가요?" onAction={() => setContextMessage("자료에 적힌 조건만을 근거로 검토해요. 자료에 없는 내용은 추측하지 않아요.")} />
+            <p className="panel-description">{assignment.assignmentType === "team" ? "과제 공지, 채점기준, 강의계획서와 팀플 공지를 PDF 또는 DOCX로 추가하세요." : "과제 공지, 채점기준과 강의계획서를 PDF 또는 DOCX로 추가하세요."}</p>
             <div className="upload-controls">
-              <select value={documentType} onChange={(event) => setDocumentType(event.target.value as DocumentType)} aria-label="자료 종류">
-                <option value="assignment_notice">과제 공지</option><option value="syllabus">강의계획서</option><option value="team_notice">팀플 공지</option><option value="rubric">채점기준</option><option value="feedback">교수님 피드백</option><option value="draft">제출 초안</option>
+              <select value={contextDocumentType} onChange={(event) => setContextDocumentType(event.target.value as ContextDocumentType)} aria-label="과제 기준 자료 종류">
+                {contextDocumentTypes.map((type) => <option value={type} key={type}>{DOCUMENT_LABELS[type]}</option>)}
               </select>
-              <label className={`upload-button ${uploading ? "disabled" : ""}`}>
-                <input type="file" accept=".pdf,.docx" onChange={handleUpload} disabled={uploading} />
-                {uploading ? "텍스트를 읽는 중…" : "파일 추가 +"}
+              <label className={`upload-button ${uploadingType ? "disabled" : ""}`}>
+                <input type="file" accept=".pdf,.docx" onChange={(event) => void handleUpload(event, contextDocumentType, setContextMessage)} disabled={Boolean(uploadingType)} />
+                {uploadingType === contextDocumentType ? "텍스트를 읽는 중…" : "기준 자료 추가 +"}
               </label>
             </div>
-            {uploadMessage && <p className="inline-message">{uploadMessage}</p>}
+            {contextMessage && <p className="inline-message">{contextMessage}</p>}
             <DocumentList documents={documents} />
           </section>
           <section className="panel draft-panel">
             <PanelHeading eyebrow="02 · YOUR DRAFT" title="제출 초안을 올려주세요." />
             <p className="panel-description">완성 전 초안도 괜찮아요. 현재 기준에서 확인할 수 있는 부분을 찾아볼게요.</p>
-            {draft ? <DraftReady document={draft} onNavigate={() => onNavigate(`#review/${assignment.id}`)} /> : <div className="draft-empty"><span className="draft-empty-icon">↗</span><div><strong>아직 초안이 없어요</strong><p>위 자료 종류를 ‘제출 초안’으로 바꾸고 파일을 추가하세요.</p></div></div>}
+            <div className="upload-controls section-upload-controls"><label className={`upload-button ${uploadingType ? "disabled" : ""}`}><input type="file" accept=".pdf,.docx" onChange={(event) => void handleUpload(event, "draft", setDraftMessage)} disabled={Boolean(uploadingType)} />{uploadingType === "draft" ? "텍스트를 읽는 중…" : draft ? "초안 교체 +" : "초안 추가 +"}</label></div>
+            {draftMessage && <p className="inline-message">{draftMessage}</p>}
+            {draft ? <DraftReady document={draft} onNavigate={() => onNavigate(`#review/${assignment.id}`)} /> : <div className="draft-empty"><span className="draft-empty-icon">↗</span><div><strong>아직 초안이 없어요</strong><p>이 영역에서 검토할 PDF 또는 DOCX 초안을 추가하세요.</p></div></div>}
           </section>
-          <FeedbackPanel feedbackRecords={feedbackRecords} onUpdate={onUpdateFeedback} />
+          <FeedbackPanel feedbackRecords={feedbackRecords} onUpdate={onUpdateFeedback} uploading={uploadingType === "feedback"} uploadDisabled={Boolean(uploadingType)} uploadMessage={feedbackMessage} onUpload={(event) => void handleUpload(event, "feedback", setFeedbackMessage)} />
         </div>
         <aside className="workspace-side">
           <section className="panel review-cta-panel">
@@ -897,7 +935,7 @@ function ProgressSteps({ hasContext, hasDraft, hasReview, hasFeedback }: { hasCo
 }
 
 function DocumentList({ documents }: { documents: StoredDocument[] }) {
-  const contextDocuments = documents.filter((doc) => doc.documentType !== "draft");
+  const contextDocuments = documents.filter(isContextDocument);
   if (contextDocuments.length === 0) return <div className="document-empty">추가한 자료가 여기에 쌓여요.</div>;
   return <div className="document-list">{contextDocuments.map((document) => <div className="document-row" key={document.documentId}><span className={`file-icon ${document.documentType}`}>{document.fileName.toLowerCase().endsWith(".pdf") ? "PDF" : "DOC"}</span><div><strong>{document.fileName}</strong><small>{DOCUMENT_LABELS[document.documentType]} · {document.blocks.length}개 근거 문단</small></div>{document.warnings.length > 0 ? <span className="warning-badge">확인 필요</span> : <span className="check-badge">✓</span>}</div>)}</div>;
 }
@@ -906,8 +944,8 @@ function DraftReady({ document, onNavigate }: { document: StoredDocument; onNavi
   return <div className="draft-ready"><div className="draft-file"><span className="file-icon draft">{document.fileName.toLowerCase().endsWith(".pdf") ? "PDF" : "DOC"}</span><div><strong>{document.fileName}</strong><small>{document.blocks.length}개 문단 · {document.characterCount.toLocaleString()}자</small></div></div><button className="small-button" onClick={onNavigate}>검토 화면 →</button></div>;
 }
 
-function FeedbackPanel({ feedbackRecords, onUpdate }: { feedbackRecords: FeedbackRecord[]; onUpdate: (feedback: FeedbackRecord) => Promise<void> }) {
-  return <section className="panel feedback-panel"><PanelHeading eyebrow="03 · FEEDBACK LOOP" title="교수님 피드백을 기록해요." /><p className="panel-description">원문과 나만의 해석을 분리해 남기면 다음 검토에 다시 쓸 수 있어요.</p>{feedbackRecords.length === 0 ? <div className="document-empty">피드백 파일을 추가하면 원문과 반영 상태를 관리할 수 있어요.</div> : <div className="feedback-list">{feedbackRecords.map((feedback) => <FeedbackRow key={feedback.feedbackId} feedback={feedback} onUpdate={onUpdate} />)}</div>}</section>;
+function FeedbackPanel({ feedbackRecords, onUpdate, uploading, uploadDisabled, uploadMessage, onUpload }: { feedbackRecords: FeedbackRecord[]; onUpdate: (feedback: FeedbackRecord) => Promise<void>; uploading: boolean; uploadDisabled: boolean; uploadMessage: string; onUpload: (event: ChangeEvent<HTMLInputElement>) => void }) {
+  return <section className="panel feedback-panel"><PanelHeading eyebrow="03 · FEEDBACK LOOP" title="교수님 피드백을 기록해요." /><p className="panel-description">제출 후 받은 피드백을 올리고, 원문과 나만의 해석을 분리해 다음 과제에 연결하세요.</p><div className="upload-controls section-upload-controls"><label className={`upload-button ${uploadDisabled ? "disabled" : ""}`}><input type="file" accept=".pdf,.docx" onChange={onUpload} disabled={uploadDisabled} />{uploading ? "텍스트를 읽는 중…" : "피드백 추가 +"}</label></div>{uploadMessage && <p className="inline-message">{uploadMessage}</p>}{feedbackRecords.length === 0 ? <div className="document-empty">이 영역에서 피드백 파일을 추가하면 원문과 반영 상태를 관리할 수 있어요.</div> : <div className="feedback-list">{feedbackRecords.map((feedback) => <FeedbackRow key={feedback.feedbackId} feedback={feedback} onUpdate={onUpdate} />)}</div>}</section>;
 }
 
 function FeedbackRow({ feedback, onUpdate }: { feedback: FeedbackRecord; onUpdate: (feedback: FeedbackRecord) => Promise<void> }) {
